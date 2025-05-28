@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <title>กล่องรับความคิดเห็น (ไม่ระบุตัวตน)</title>
+  <style>
+    body { font-family: 'Segoe UI', sans-serif; background-color: #f2f2f2; padding: 40px; }
+    .container { max-width: 500px; margin: auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+    textarea { width: 100%; height: 150px; padding: 10px; font-size: 16px; margin-bottom: 20px; }
+    button { background-color: #4CAF50; color: white; padding: 10px 20px; font-size: 16px; border: none; border-radius: 5px; cursor: pointer; }
+    button:hover { background-color: #45a049; }
+    button:disabled { background-color: #a5d6a7; cursor: not-allowed; }
+    .success { color: green; margin-top: 10px; }
+    .error { color: red; margin-top: 10px; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <img src="https://media.discordapp.net/attachments/1376969796737962074/1377173856070144060/image0.gif?ex=68380099&is=6836af19&hm=41aedf5807819ae77748520d83ef6fee79a61b3c05caf009265866b5203b3a3c&=" alt="Romklao Wattana" style="width: 100%; border-radius: 10px; margin-bottom: 20px;">
+  <h2>💬 กล่องรับความคิดเห็น (ไม่ระบุตัวตน)</h2>
+  <textarea id="message" placeholder="พิมพ์ข้อความของคุณที่นี่..."></textarea>
+  <button id="sendBtn" onclick="sendMessage()">ส่ง</button>
+  <div id="response"></div>
+</div>
+
+<script>
+  const COOLDOWN_TIME = 60 * 60 * 1000;
+  const STORAGE_KEY = 'lastSentTime';
+
+  const badWords = ['เหี้ย', 'สัส', 'ควาย', 'โง่', 'แม่ง', 'ตูด', 'ห่า', 'บ้า', 'หี', 'กู', 'มึง', 'ควย', 'เดี่ยว'];
+
+  function containsBadWords(text) {
+    const lowerText = text.toLowerCase();
+    return badWords.some(badWord => lowerText.includes(badWord));
+  }
+
+  function canSend() {
+    const lastSent = localStorage.getItem(STORAGE_KEY);
+    if (!lastSent) return true;
+
+    const lastSentTime = parseInt(lastSent, 10);
+    const now = Date.now();
+
+    return (now - lastSentTime) >= COOLDOWN_TIME;
+  }
+
+  function getRemainingCooldown() {
+    const lastSent = localStorage.getItem(STORAGE_KEY);
+    if (!lastSent) return 0;
+
+    const lastSentTime = parseInt(lastSent, 10);
+    const now = Date.now();
+
+    const diff = COOLDOWN_TIME - (now - lastSentTime);
+    return diff > 0 ? diff : 0;
+  }
+
+  function msToTime(duration) {
+    let seconds = Math.floor((duration / 1000) % 60);
+    let minutes = Math.floor((duration / (1000 * 60)) % 60);
+    return `${minutes} นาที ${seconds} วินาที`;
+  }
+
+  async function sendMessage() {
+    const message = document.getElementById('message').value.trim();
+    const responseDiv = document.getElementById('response');
+    const sendBtn = document.getElementById('sendBtn');
+    
+    responseDiv.innerHTML = '';
+
+    if (!message) {
+      responseDiv.innerHTML = '<div class="error">กรุณากรอกข้อความก่อนส่ง</div>';
+      return;
+    }
+
+    if (containsBadWords(message)) {
+      responseDiv.innerHTML = '<div class="error">❌ พบคำหยาบในข้อความ กรุณาแก้ไขก่อนส่ง</div>';
+      return;
+    }
+
+    if (message.toLowerCase().includes("อารอง")) {
+      responseDiv.innerHTML = '<div class="error">เป็นค*ยไรกับเพื่อนผม</div>';
+      return;
+    }
+
+    if (!canSend()) {
+      const remain = getRemainingCooldown();
+      responseDiv.innerHTML = `<div class="error">⏳ กรุณารออีก ${msToTime(remain)} ก่อนส่งข้อความครั้งถัดไป</div>`;
+      return;
+    }
+
+    sendBtn.disabled = true;
+    sendBtn.innerText = 'กำลังส่ง...';
+
+    const webhookURL = "https://discord.com/api/webhooks/1376969900626677760/8EQfApbhI7vVQIZz1D08h81kklvKiL6ifkQ-ayRhN0xMC_bYbM4VpL50APZa_Me1f9Ii";
+
+    const payload = {
+      content: `${message}`
+    };
+
+    try {
+      const res = await fetch(webhookURL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (res.ok) {
+        responseDiv.innerHTML = '<div class="success">✅ ส่งข้อความสำเร็จ ขอบคุณที่มาระบาย!!</div>';
+        document.getElementById('message').value = '';
+
+        localStorage.setItem(STORAGE_KEY, Date.now().toString());
+      } else {
+        responseDiv.innerHTML = '<div class="error">❌ เกิดข้อผิดพลาดในการส่ง</div>';
+      }
+    } catch (error) {
+      responseDiv.innerHTML = '<div class="error">❌ ไม่สามารถเชื่อมต่อกับ Discord ได้</div>';
+    } finally {
+      sendBtn.disabled = false;
+      sendBtn.innerText = 'ส่ง';
+    }
+  }
+</script>
+
+</body>
+</html>
